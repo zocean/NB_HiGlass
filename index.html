@@ -19,6 +19,24 @@
   <script src="https://d3js.org/d3.v6.min.js"></script>
 
   <style>
+    .dropbox {
+      border: 2px dashed #aaaaaa;
+      width: 300px;
+      height: 35px;
+      border-radius: 5px;
+      background: #b3cde3;
+      text-align: center;
+      font-size: 16px;
+      margin: 10px auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .dropdone {
+      background: #fbb4ae;
+    }
+
     .collapsible {
       background-color: #eee;
       color: #444;
@@ -61,7 +79,8 @@
 </head>
 
 <body style="width:100vw; height:100vh">
-  <h2 style="text-align:center">Link Nucleome Browser with HiGlass</h1>
+  <h2 style="text-align:center; margin: 20px auto;">Link Nucleome Browser with HiGlass</h2>
+  <div id="divdrop" ondrop="drop(event)" ondragover="allowDrop(event)" class="dropbox">Drag and drop a DCIC JSON link</div>
   <button type="button" class="collapsible">Load Custom Higlass Session</button>
   <div class="content">
     <h3 style="text-align:left">Instruction</h3>
@@ -94,10 +113,10 @@
 
 <script>
 
+// Collapsible intruction box
 var coll = document.getElementsByClassName("collapsible");
-var i;
 
-for (i = 0; i < coll.length; i++) {
+for (var i = 0; i < coll.length; i++) {
   coll[i].addEventListener("click", function() {
     this.classList.toggle("active");
     var content = this.nextElementSibling;
@@ -118,10 +137,13 @@ nb_hub.connect(function (d) {
 function getUrlPara(name, url) {
   return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(url) || [, ""])[1].replace(/\+/g, '%20')) || null;
 }
+
 // 
 function getJSON(url, isDCIC, callback) {
   if (isDCIC) {
-      url = url + '/?format=json'
+    if (!url.includes('/?format=json')) {
+      url = url + '/?format=json';
+    }
   }
   fetch(url)
     .then(res => res.json())
@@ -130,7 +152,7 @@ function getJSON(url, isDCIC, callback) {
   });
 }
 
-//
+// get the HiGlass div
 var container = document.getElementById('development-demo');
 
 //
@@ -142,26 +164,48 @@ var genomeSession = getUrlPara('genome', window.location.search);
 var viewID = 'aa'
 var genomeSize = 'https://nbchromsizes.s3.amazonaws.com/4DNFI823LSII.chrom.sizes'
 
-if (preloadedSession == null) {
-  // Load an existing HiGlass session
-  const hgApi = hglib.viewer(
-    container,
-    'https://higlass.io/api/v1/viewconfs/?d=T6BMovEFTdqfo9tj7NTwKw',
-    //'https://higlass.4dnucleome.org/api/v1/viewconfs/?d=ZIvQ5_HkQdOfSVHU__o1kQ',
-    {
-      bounded: true,
-      globalMousePosition: true,
-      sizeMode: 'bounded',
-    }
-  );
-  // directly call
-  setTimeout(draw, 1000, hgApi, viewID, genomeSize);
+// Use the drop JSON link
+function allowDrop(ev) {
+  ev.preventDefault();
+}
 
-  // resize 
-  window.addEventListener('resize', function(event) {
+function drag(ev) {
+  ev.dataTransfer.setData("Url","http://www.google.fr");
+}
+
+function drop(ev) {
+  ev.preventDefault();
+  var dcicJSON = ev.dataTransfer.getData("Url");
+  var divdrop = document.getElementById('divdrop')
+  //divdrop.style.background = "#fbb4ae";
+  divdrop.classList.toggle("dropdone");
+  parseInput(dcicJSON, container, genomeSession, viewID, genomeSize);
+}
+
+// do not use the drop box
+parseInput(preloadedSession, container, genomeSession, viewID, genomeSize);
+
+function parseInput(preloadedSession, container, genomeSession, viewID, genomeSize) {
+  if (preloadedSession == null) {
+    // Load an existing HiGlass session
+    const hgApi = hglib.viewer(
+      container,
+      'https://higlass.io/api/v1/viewconfs/?d=T6BMovEFTdqfo9tj7NTwKw',
+      //'https://higlass.4dnucleome.org/api/v1/viewconfs/?d=ZIvQ5_HkQdOfSVHU__o1kQ',
+      {
+        bounded: true,
+        globalMousePosition: true,
+        sizeMode: 'bounded',
+      }
+    );
+    // directly call
     setTimeout(draw, 1000, hgApi, viewID, genomeSize);
-  }, true);
-} else {
+  
+    // resize 
+    window.addEventListener('resize', function(event) {
+      setTimeout(draw, 1000, hgApi, viewID, genomeSize);
+    }, true);
+  } else {
     // Load session provided by user
     if (genomeSession == 'mm10') {
       genomeSize = 'https://nbchromsizes.s3.amazonaws.com/4DNFI3UBJ3HZ.chrom.sizes';
@@ -176,32 +220,33 @@ if (preloadedSession == null) {
        isDCIC = true; 
     }
     getJSON(preloadedSession.replace('/l/', '/api/v1/viewconfs/'), isDCIC, function(viewConfig){
-    var formatted = JSON.stringify(viewConfig, null, 2);
-    document.getElementById('result').value = formatted;
-    // if the JSON file is from the 4DN DCIC
-    if (viewConfig.hasOwnProperty('viewconfig')) {
-      viewConfig = viewConfig.viewconfig
-      viewID = viewConfig.views[0].uid;
-    } else {
-      viewID = viewConfig.views[0].uid;
-    }
-    console.log(viewID)
-    const hgApi = hglib.viewer(
-      container,
-      viewConfig,
-      {
-        bounded: true,
-        globalMousePosition: true,
-        sizeMode: 'bounded',
+      var formatted = JSON.stringify(viewConfig, null, 2);
+      document.getElementById('result').value = formatted;
+      // if the JSON file is from the 4DN DCIC
+      if (viewConfig.hasOwnProperty('viewconfig')) {
+        viewConfig = viewConfig.viewconfig
+        viewID = viewConfig.views[0].uid;
+      } else {
+        viewID = viewConfig.views[0].uid;
       }
-    );
-    //
-    setTimeout(draw, 1000, hgApi, viewID, genomeSize);
-    //
-    window.addEventListener('resize', function(event) {
+      console.log(viewID)
+      const hgApi = hglib.viewer(
+        container,
+        viewConfig,
+        {
+          bounded: true,
+          globalMousePosition: true,
+          sizeMode: 'bounded',
+        }
+      );
+      //
       setTimeout(draw, 1000, hgApi, viewID, genomeSize);
-    }, true);
-  })
+      //
+      window.addEventListener('resize', function(event) {
+        setTimeout(draw, 1000, hgApi, viewID, genomeSize);
+      }, true);
+    });
+  }
 }
   
 // Draw function
