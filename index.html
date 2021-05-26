@@ -119,7 +119,10 @@ function getUrlPara(name, url) {
   return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(url) || [, ""])[1].replace(/\+/g, '%20')) || null;
 }
 // 
-function getJSON(url, callback) {
+function getJSON(url, isDCIC, callback) {
+  if (isDCIC) {
+      url = url + '/?format=json'
+  }
   fetch(url)
     .then(res => res.json())
     .then(resJSON => {
@@ -168,10 +171,20 @@ if (preloadedSession == null) {
     else {
       genomeSize = 'https://nbchromsizes.s3.amazonaws.com/4DNFI823LSII.chrom.sizes';
     }
-    getJSON(preloadedSession.replace('/l/', '/api/v1/viewconfs/'), function(viewConfig){
+    var  isDCIC = false;
+    if (preloadedSession.includes('higlass-view-configs')) {
+       isDCIC = true; 
+    }
+    getJSON(preloadedSession.replace('/l/', '/api/v1/viewconfs/'), isDCIC, function(viewConfig){
     var formatted = JSON.stringify(viewConfig, null, 2);
     document.getElementById('result').value = formatted;
-    viewID = viewConfig.views[0].uid;
+    // if the JSON file is from the 4DN DCIC
+    if (viewConfig.hasOwnProperty('viewconfig')) {
+      viewConfig = viewConfig.viewconfig
+      viewID = viewConfig.views[0].uid;
+    } else {
+      viewID = viewConfig.views[0].uid;
+    }
     console.log(viewID)
     const hgApi = hglib.viewer(
       container,
@@ -194,13 +207,21 @@ if (preloadedSession == null) {
 // Draw function
 function draw(hgApi, viewID, genomeSize) {
     var chromInfo = hglib.ChromosomeInfo(genomeSize)
+    var top = d3.select('.top-track-container').select('div');
     var center = d3.select('.center-track');
+    if (center.node() == null) {
+      center = top
+    }
+    center.selectAll('.svgNBHighlight').remove();
     svgWidth = center.node().clientWidth;
     svgHeight = center.node().clientHeight;
-    center.selectAll('svg').remove();
     svg = center.append("svg")
+      .attr('class', 'svgNBHighlight')
       .attr('width', svgWidth+'px')
       .attr('height', svgHeight+'px')
+      .style('position', 'absolute')
+      .style('top', '0px')
+      .style('left', '0px')
       .append("g")
     svg.selectAll('*').remove();
     // 
