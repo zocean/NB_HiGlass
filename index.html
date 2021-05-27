@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-
+  <title>NB HiGlass viewer</title>
   <link rel="stylesheet" href="https://unpkg.com/higlass@1.11.7/dist/hglib.css" type="text/css">
   <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" type="text/css">
 
@@ -19,6 +19,11 @@
   <script src="https://d3js.org/d3.v6.min.js"></script>
 
   <style>
+    #nbChan {
+      width: 100px;
+      background: #b2df8a
+    }
+
     .dropbox {
       border: 2px dashed #aaaaaa;
       width: 300px;
@@ -79,7 +84,15 @@
 </head>
 
 <body style="width:100vw; height:100vh">
-  <h2 style="text-align:center; margin: 20px auto;">Link Nucleome Browser with HiGlass</h2>
+  <div style="width: 100%; position: relative; display: block; text-align: center;">
+    <div style="display: inline-block;">
+      <h2 style="text-align: center; margin: 20px auto;">Link Nucleome Browser with HiGlass</h2>
+    </div>
+    <div style="right:20px; position: absolute; float:right; display: inline-block; margin: 25px auto">
+      <label>NB Channel ID</label>
+      <input type="text" id="nbChan" value="cnbChan01">
+    </div>
+  </div>
   <div id="divdrop" ondrop="drop(event)" ondragover="allowDrop(event)" class="dropbox">Drag and drop a DCIC JSON link</div>
   <button type="button" class="collapsible">Load Custom Higlass Session</button>
   <div class="content">
@@ -128,17 +141,12 @@ for (var i = 0; i < coll.length; i++) {
   });
 }
 
-// Connect to nb-dispatch
-var nb_hub = nb.dispatch('update', 'brush');
-nb_hub.connect(function (d) {
-});
-
 // check whehter user provide a higlass link
 function getUrlPara(name, url) {
   return decodeURIComponent((new RegExp('[?|&]' + name + '=' + '([^&;]+?)(&|#|;|$)').exec(url) || [, ""])[1].replace(/\+/g, '%20')) || null;
 }
 
-// 
+// get JSON file
 function getJSON(url, isDCIC, callback) {
   if (isDCIC) {
     if (!url.includes('/?format=json')) {
@@ -155,14 +163,37 @@ function getJSON(url, isDCIC, callback) {
 // get the HiGlass div
 var container = document.getElementById('development-demo');
 
+// get parameter from URL
+var preloadedSession = getUrlPara('config', window.location.search);
+var genomeSession = getUrlPara('genome', window.location.search);
+var channelID = getUrlPara('channel', window.location.search);
+var viewID = 'aa'
+var genomeSize = 'https://nbchromsizes.s3.amazonaws.com/4DNFI823LSII.chrom.sizes'
+
+// Connect to nb-dispatch
+var nb_hub = nb.dispatch('update', 'brush');
+console.log(nb_hub.status())
+
+// Set the channel ID
+var nb_chan = document.getElementById('nbChan')
+if (channelID != null) {
+  nb_chan.value = channelID;
+  nb_hub.chanId(channelID);
+}
+nb_chan.addEventListener('input', updateChanID);
+
+function updateChanID(e) {
+  nb_hub.disconnect()
+  nb_hub.chanId(e.target.value)
+  nb_hub.connect(function (d) {});
+}
+
+nb_hub.connect(function (d) {
+});
+
 //
 //var link="http://vis.nucleome.org/static/apps/HiGlassDemo?config=https://higlass.io/l/?d=XWfL14-MQGGLQqFgF4Ej_A&genome=hg38"
 //var link="http://127.0.0.1:8080/demo.html?config=https://higlass.4dnucleome.org/api/v1/viewconfs/?d=ZIvQ5_HkQdOfSVHU__o1kQ&genome=hg19"
-
-var preloadedSession = getUrlPara('config', window.location.search);
-var genomeSession = getUrlPara('genome', window.location.search);
-var viewID = 'aa'
-var genomeSize = 'https://nbchromsizes.s3.amazonaws.com/4DNFI823LSII.chrom.sizes'
 
 // Use the drop JSON link
 function allowDrop(ev) {
